@@ -1,0 +1,16 @@
+stages:
+  - executejmeter
+
+executejmeter:
+  stage: executejmeter
+  image: bitnami/kubectl:latest
+  script:
+    - echo "Limpando ambiente da ultima execução"
+    - kubectl get configmap jmxconfig -n default && kubectl delete configmap jmxconfig -n default || echo "ConfigMap não encontrado"
+    - kubectl delete job jmeter -n default || echo "Job jmeter não encontrado"
+    - echo "Criando jmx especificado $JMXNAME"
+    - kubectl create configmap -n default jmxconfig --from-file=jmxconfig.jmx=jmx-files/$JMXNAME
+    - kubectl get configmaps -n default
+    - echo "Criando e disparando o job do jmeter"
+    - kubectl apply -f jmeter.yaml
+    - kubectl get jobs -n default

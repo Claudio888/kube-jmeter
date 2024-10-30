@@ -1,0 +1,84 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  creationTimestamp: null
+  labels:
+    app: jmeter
+  name: jmeter
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        app: jmeter
+    spec:
+      containers:
+      - image: claudio888/kube-jmeter:5.6
+        name: jmeter
+        env:
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: accesskey
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secretkey
+        - name: MINIO_ADDRESS
+          value: "gitlab-minio-svc.gitlab.svc:9000"
+        #command: ["/bin/sh"] #debug mode
+        #args: ["-c", "sleep 10d"] #debug mode
+        args: ["-n", "-t", "./jmxfiles/jmxconfig.jmx","-l","results.jtl", "-j", "jmeter.log"]
+        ports:
+        - containerPort: 9270
+        resources:
+          limits:
+            cpu: 0.1
+            memory: 4Gi
+          requests:
+            cpu: 0.05
+            memory: 1Gi 
+        volumeMounts:
+          - name: jmxconfig
+            mountPath: /opt/apache-jmeter-5.6/jmxfiles
+      volumes:
+        - name: jmxconfig
+          configMap:
+            name: jmxconfig
+      restartPolicy: Never
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jmeter
+  namespace: default
+  labels:
+    app: jmeter
+spec:
+  selector:
+    app: jmeter
+  ports:
+    - protocol: TCP
+      name: prom
+      port: 9270
+      targetPort: 9270
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: jmeter-servicemonitor
+  namespace: default
+  labels: 
+    app: jmeter
+spec:
+  selector:
+    matchLabels:
+      app: jmeter
+  endpoints:
+  - port: prom
+    path: /metrics
+    interval: 5s
+    targetPort: 9270

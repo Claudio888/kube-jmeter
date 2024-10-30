@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nginxtest
+  name: nginxtest
+  namespace: gitlab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginxtest
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nginxtest
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: 0.02
+            memory: 20Mi 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginxtest
+  namespace: gitlab
+spec:
+  selector:
+    app: nginxtest
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginxtest-ingress
+  namespace: gitlab
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    kubernetes.io/ingress.provider: nginx
+spec:
+  ingressClassName: gitlab-nginx
+  rules:
+    - host: nginxtest.192.168.1.7.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nginxtest
+                port:
+                  number: 80
